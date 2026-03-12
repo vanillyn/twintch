@@ -302,7 +302,7 @@ class ConfigView(discord.ui.View):
 
 
 @bot.command(name="setup")
-async def setup_cmd(ctx: commands.Context, username: str) -> None:
+async def setup(ctx: commands.Context, username: str) -> None:
     result = await get_user_id(username)
     if result is None:
         await ctx.send(f"couldn't find twitch user '{username}'")
@@ -325,7 +325,7 @@ async def setup_cmd(ctx: commands.Context, username: str) -> None:
 
 
 @bot.command(name="edit")
-async def edit_cmd(ctx: commands.Context, username: str) -> None:
+async def edit(ctx: commands.Context, username: str) -> None:
     streamer = await get_streamer_by_username(username)
     if streamer is None:
         await ctx.send(f"no streamer named '{username}' found")
@@ -338,7 +338,7 @@ async def edit_cmd(ctx: commands.Context, username: str) -> None:
 
 
 @bot.command(name="remove")
-async def remove_cmd(ctx: commands.Context, username: str) -> None:
+async def remove(ctx: commands.Context, username: str) -> None:
     streamer = await get_streamer_by_username(username)
     if streamer is None:
         await ctx.send(f"no streamer named '{username}' found")
@@ -351,7 +351,7 @@ async def remove_cmd(ctx: commands.Context, username: str) -> None:
 
 
 @bot.command(name="test")
-async def test_cmd(ctx: commands.Context, username: str) -> None:
+async def test(ctx: commands.Context, username: str) -> None:
     streamer = await get_streamer_by_username(username)
     if streamer is None:
         await ctx.send(f"no streamer named '{username}' found")
