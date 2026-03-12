@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 
-from bot import bot
 from src.db import (
     add_streamer,
     get_streamer,
@@ -301,63 +300,68 @@ class ConfigView(discord.ui.View):
         await interaction.response.edit_message(view=None)
 
 
-@bot.command(name="setup")
-async def setup(ctx: commands.Context, username: str) -> None:
-    result = await get_user_id(username)
-    if result is None:
-        await ctx.send(f"couldn't find twitch user '{username}'")
-        return
-    user_id, display_name = result
-    if await get_streamer(user_id) is not None:
-        await ctx.send(f"{display_name} is already being tracked")
-        return
-    await add_streamer(user_id, display_name, ctx.channel.id)
-    sub_id = await subscribe_to_stream_online(user_id)
-    if sub_id:
-        await update_streamer(user_id, subscription_id=sub_id)
-    user_info = await get_user_info(user_id)
-    profile_pic = str(user_info["profile_image_url"]) if user_info else ""
-    embed = await build_config_embed(user_id, profile_pic)
-    view = ConfigView(user_id, profile_pic)
-    await ctx.send(
-        f"added **{display_name}** — configure below:", embed=embed, view=view
-    )
+class Commands(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+
+    @commands.command(name="setup")
+    async def setup_cmd(self, ctx: commands.Context, username: str) -> None:
+        result = await get_user_id(username)
+        if result is None:
+            await ctx.send(f"couldn't find twitch user '{username}'")
+            return
+        user_id, display_name = result
+        if await get_streamer(user_id) is not None:
+            await ctx.send(f"{display_name} is already being tracked")
+            return
+        await add_streamer(user_id, display_name, ctx.channel.id)
+        sub_id = await subscribe_to_stream_online(user_id)
+        if sub_id:
+            await update_streamer(user_id, subscription_id=sub_id)
+        user_info = await get_user_info(user_id)
+        profile_pic = str(user_info["profile_image_url"]) if user_info else ""
+        embed = await build_config_embed(user_id, profile_pic)
+        view = ConfigView(user_id, profile_pic)
+        await ctx.send(
+            f"added **{display_name}** — configure below:", embed=embed, view=view
+        )
+
+    @commands.command(name="edit")
+    async def edit_cmd(self, ctx: commands.Context, username: str) -> None:
+        streamer = await get_streamer_by_username(username)
+        if streamer is None:
+            await ctx.send(f"no streamer named '{username}' found")
+            return
+        user_info = await get_user_info(str(streamer["twitch_user_id"]))
+        profile_pic = str(user_info["profile_image_url"]) if user_info else ""
+        embed = await build_config_embed(str(streamer["twitch_user_id"]), profile_pic)
+        view = ConfigView(str(streamer["twitch_user_id"]), profile_pic)
+        await ctx.send(embed=embed, view=view)
+
+    @commands.command(name="remove")
+    async def remove_cmd(self, ctx: commands.Context, username: str) -> None:
+        streamer = await get_streamer_by_username(username)
+        if streamer is None:
+            await ctx.send(f"no streamer named '{username}' found")
+            return
+        sub_id = str(streamer["subscription_id"])
+        if sub_id:
+            await unsubscribe(sub_id)
+        await remove_streamer(str(streamer["twitch_user_id"]))
+        await ctx.send(f"removed **{streamer['twitch_username']}**")
+
+    @commands.command(name="test")
+    async def test_cmd(self, ctx: commands.Context, username: str) -> None:
+        streamer = await get_streamer_by_username(username)
+        if streamer is None:
+            await ctx.send(f"no streamer named '{username}' found")
+            return
+        if not int(streamer["discord_channel_id"]):
+            await ctx.send("set a channel first with `>>edit`")
+            return
+        await send_live_notification(str(streamer["twitch_user_id"]))
+        await ctx.send("test sent", delete_after=5)
 
 
-@bot.command(name="edit")
-async def edit(ctx: commands.Context, username: str) -> None:
-    streamer = await get_streamer_by_username(username)
-    if streamer is None:
-        await ctx.send(f"no streamer named '{username}' found")
-        return
-    user_info = await get_user_info(str(streamer["twitch_user_id"]))
-    profile_pic = str(user_info["profile_image_url"]) if user_info else ""
-    embed = await build_config_embed(str(streamer["twitch_user_id"]), profile_pic)
-    view = ConfigView(str(streamer["twitch_user_id"]), profile_pic)
-    await ctx.send(embed=embed, view=view)
-
-
-@bot.command(name="remove")
-async def remove(ctx: commands.Context, username: str) -> None:
-    streamer = await get_streamer_by_username(username)
-    if streamer is None:
-        await ctx.send(f"no streamer named '{username}' found")
-        return
-    sub_id = str(streamer["subscription_id"])
-    if sub_id:
-        await unsubscribe(sub_id)
-    await remove_streamer(str(streamer["twitch_user_id"]))
-    await ctx.send(f"removed **{streamer['twitch_username']}**")
-
-
-@bot.command(name="test")
-async def test(ctx: commands.Context, username: str) -> None:
-    streamer = await get_streamer_by_username(username)
-    if streamer is None:
-        await ctx.send(f"no streamer named '{username}' found")
-        return
-    if not int(streamer["discord_channel_id"]):
-        await ctx.send("set a channel first with `>>edit`")
-        return
-    await send_live_notification(str(streamer["twitch_user_id"]))
-    await ctx.send("test sent", delete_after=5)
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(Commands(bot))

@@ -27,7 +27,6 @@ async def on_ready() -> None:
     from src.notifications import send_live_notification
 
     _webserver.notify_callback = send_live_notification
-    await bot.tree.sync()
     log.info("logged in as %s", bot.user)
 
 
@@ -41,14 +40,14 @@ async def main() -> None:
 
     await init_db()
     log.info("db initialized")
+    await bot.load_extension("src.commands")
+    log.info("cog loaded")
     config = {"port": 3000, "host": "0.0.0.0"}
     await asyncio.gather(
         bot.start(os.getenv("DISCORD_TOKEN", "")),
         app.run_task(**config),
     )
 
-
-import src.commands as _commands  # noqa: E402, F401
 
 if __name__ == "__main__":
     asyncio.run(main())
